@@ -1,13 +1,23 @@
 import cv2
 import mediapipe as mp
 
+from formfix.angles import calculate_angle
+from formfix.shoulder_press import ShoulderPressAnalyzer
 
-def find_available_cameras(max_index=10):
-    available_cameras = []
+def get_landmark_point(landmarks, landmark_enum, image_width, image_height):
+    landmark = landmarks[landmark_enum.value]
+
+    x = int(landmark.x * image_width)
+    y = int(landmark.y * image_height)
+
+    return x, y
+
+''' def find_available_cameras(max_index=10):
+    available_cameras = [2]
 
     print("Scanning for available cameras...")
 
-    for index in range(max_index):
+     for index in range(max_index):
         cap = cv2.VideoCapture(index)
 
         if cap.isOpened():
@@ -21,12 +31,12 @@ def find_available_cameras(max_index=10):
 
             cap.release()
         else:
-            print(f"[{index}] Not available")
+            print(f"[{index}] Not available") 
 
     return available_cameras
+'''
 
-
-def choose_camera():
+''' def choose_camera():
     available_cameras = find_available_cameras()
 
     if not available_cameras:
@@ -49,11 +59,11 @@ def choose_camera():
             print("That camera number is not in the available list.")
 
         except ValueError:
-            print("Please enter a valid number.")
+            print("Please enter a valid number.") '''
 
 
 def main():
-    camera_index = choose_camera()
+    camera_index = 2 #choose_camera()
 
     if camera_index is None:
         return
@@ -62,6 +72,7 @@ def main():
 
     mp_pose = mp.solutions.pose
     mp_drawing = mp.solutions.drawing_utils
+    shoulder_press_analyzer = ShoulderPressAnalyzer()
 
     cap = cv2.VideoCapture(camera_index)
 
@@ -95,11 +106,160 @@ def main():
                     results.pose_landmarks,
                     mp_pose.POSE_CONNECTIONS,
                 )
+                
+                image_height, image_width, _ = frame.shape
+                landmarks = results.pose_landmarks.landmark
+
+                ''' right_hip = get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.RIGHT_HIP,
+                    image_width,
+                    image_height,
+                )
+
+                right_knee = get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.RIGHT_KNEE,
+                    image_width,
+                    image_height,
+                )
+
+                right_ankle = get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.RIGHT_ANKLE,
+                    image_width,
+                    image_height,
+                )
+
+                right_knee_angle = calculate_angle(
+                    right_hip,
+                    right_knee,
+                    right_ankle,
+                )
 
             cv2.putText(
                 frame,
-                f"Camera: {camera_index} | Press q to quit",
-                (20, 40),
+                f"Right knee angle: {int(right_knee_angle)}",
+                (20, 80),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            ) '''
+            
+            right_shoulder = get_landmark_point(
+                landmarks,
+                mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                image_width,
+                image_height,
+            )
+
+            right_elbow = get_landmark_point(
+                landmarks,
+                mp_pose.PoseLandmark.RIGHT_ELBOW,
+                image_width,
+                image_height,
+            )
+
+            right_wrist = get_landmark_point(
+                landmarks,
+                mp_pose.PoseLandmark.RIGHT_WRIST,
+                image_width,
+                image_height,
+            )
+
+            left_shoulder = get_landmark_point(
+                landmarks,
+                mp_pose.PoseLandmark.LEFT_SHOULDER,
+                image_width,
+                image_height,
+            )
+
+            left_elbow = get_landmark_point(
+                landmarks,
+                mp_pose.PoseLandmark.LEFT_ELBOW,
+                image_width,
+                image_height,
+            )
+
+            left_wrist = get_landmark_point(
+                landmarks,
+                mp_pose.PoseLandmark.LEFT_WRIST,
+                image_width,
+                image_height,
+            )
+
+            right_elbow_angle = calculate_angle(
+                right_shoulder,
+                right_elbow,
+                right_wrist,
+            )
+
+            left_elbow_angle = calculate_angle(
+                left_shoulder,
+                left_elbow,
+                left_wrist,
+            )
+            
+            analysis = shoulder_press_analyzer.analyze(
+                left_elbow_angle,
+                right_elbow_angle,
+        )
+
+            cv2.putText(
+                frame,
+                f"Right elbow angle: {int(right_elbow_angle)}",
+                (20, 80),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            )
+
+            cv2.putText(
+                frame,
+                f"Left elbow angle: {int(left_elbow_angle)}",
+                (20, 120),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            )
+            
+            cv2.putText(
+                frame,
+                f"Reps: {analysis['rep_count']}",
+                (20, 160),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,
+                (255, 255, 255),
+                2,
+            )
+
+            cv2.putText(
+                frame,
+                f"Position: {analysis['position']}",
+                (20, 200),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            )
+
+            cv2.putText(
+                frame,
+                analysis["feedback"],
+                (20, 240),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            )
+            
+            cv2.putText(
+                frame,
+                f"Arm difference: {int(analysis['elbow_difference'])}",
+                (20, 280),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
                 (255, 255, 255),
