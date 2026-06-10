@@ -3,6 +3,7 @@ import mediapipe as mp
 
 from formfix.angles import calculate_angle
 from formfix.shoulder_press import ShoulderPressAnalyzer
+from formfix.voice_feedback import VoiceFeedback
 
 def get_landmark_point(landmarks, landmark_enum, image_width, image_height):
     landmark = landmarks[landmark_enum.value]
@@ -73,7 +74,11 @@ def main():
     mp_pose = mp.solutions.pose
     mp_drawing = mp.solutions.drawing_utils
     shoulder_press_analyzer = ShoulderPressAnalyzer()
+    voice_feedback = VoiceFeedback()
 
+    # Test voice feedback
+    voice_feedback.speak("FormFix AI initialized. Let's get moving!")
+            
     cap = cv2.VideoCapture(camera_index)
 
     if not cap.isOpened():
@@ -200,11 +205,15 @@ def main():
                 left_elbow,
                 left_wrist,
             )
-            
+    
             analysis = shoulder_press_analyzer.analyze(
                 left_elbow_angle,
                 right_elbow_angle,
         )
+            
+            # Debugging: print(analysis)
+            print("VOICE:", analysis["voice_feedback"])   
+            voice_feedback.speak(analysis["voice_feedback"])
 
             cv2.putText(
                 frame,
@@ -248,7 +257,7 @@ def main():
 
             cv2.putText(
                 frame,
-                analysis["feedback"],
+                analysis["visual_feedback"],
                 (20, 240),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,

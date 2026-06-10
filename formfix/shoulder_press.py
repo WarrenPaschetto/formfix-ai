@@ -3,68 +3,96 @@ class ShoulderPressAnalyzer:
         self.rep_count = 0
         self.position = "unknown"
 
-        # These are starting values. We will tune them after testing.
+        # Movement thresholds
         self.bottom_angle_threshold = 115
         self.top_angle_threshold = 155
-        
-        # If left and right elbows differ by more than this,
-        # we will warn the user.
+        self.lockout_angle_threshold = 165
         self.symmetry_threshold = 20
 
+        # Voice event memory
+        self.last_voice_event = None
+
     def analyze(self, left_elbow_angle, right_elbow_angle):
-        """
-        Analyze shoulder press form using left and right elbow angles.
-
-        Bottom position:
-        - both elbows are bent
-
-        Top position:
-        - both elbows are extended overhead
-
-        A rep is counted when the user moves from bottom to top.
-        """
-
         average_elbow_angle = (left_elbow_angle + right_elbow_angle) / 2
         elbow_difference = abs(left_elbow_angle - right_elbow_angle)
 
-        feedback_messages = []
-        
-        # Check for uneven arm position
-        if elbow_difference > self.symmetry_threshold:
-            feedback_messages.append("Even out your arms")
+        visual_feedback_messages = []
+        voice_feedback = ""
 
-        # Detect bottom position
+        # Decide the current coaching event.
+        current_event = None
+
+        # Priority 1: uneven arms
+        if elbow_difference > self.symmetry_threshold:
+            visual_feedback_messages.append("Even out your arms")
+            current_event = "uneven_arms"
+
+        # Priority 2: bottom position
         if average_elbow_angle < self.bottom_angle_threshold:
             self.position = "bottom"
-            feedback_messages.append("Bottom position")
+            visual_feedback_messages.append("Bottom position")
 
-        # Detect completed rep
+            if current_event is None:
+                current_event = "bottom"
+
+        # Priority 3: completed rep
         elif (
             average_elbow_angle > self.top_angle_threshold
             and self.position == "bottom"
         ):
             self.rep_count += 1
             self.position = "top"
-            feedback_messages.append("Rep counted")
-            feedback_messages.append("Good lockout")
-            
-        # Detect top position without counting another rep
+            visual_feedback_messages.append("Rep counted")
+
+            current_event = "good_rep"
+
+        # Priority 4: top position
         elif average_elbow_angle > self.top_angle_threshold:
             self.position = "top"
-            feedback_messages.append("Top position")
-            
-        # User is somewhere between top and bottom
+            visual_feedback_messages.append("Top position")
+
+            if average_elbow_angle < self.lockout_angle_threshold:
+                visual_feedback_messages.append("Press to full lockout")
+
+                if current_event is None:
+                    current_event = "short_lockout"
+            else:
+                visual_feedback_messages.append("Good lockout")
+
+                if current_event is None:
+                    current_event = "good_lockout"
+
+        # Priority 5: middle
         else:
-            feedback_messages.append("Keep pressing")
-        
-        # Check lockout quality at the top
-        if self.position == "top" and average_elbow_angle < 165:
-            feedback_messages.append("Press to full lockout")
+            visual_feedback_messages.append("Keep pressing")
+
+            if current_event is None:
+                current_event = "middle"
+
+        # Convert event into a spoken cue.
+        if current_event != self.last_voice_event:
+            voice_feedback = self._voice_message_for_event(current_event)
+            self.last_voice_event = current_event
+
+        visual_feedback = " | ".join(visual_feedback_messages)
 
         return {
             "rep_count": self.rep_count,
             "position": self.position,
             "average_elbow_angle": average_elbow_angle,
             "elbow_difference": elbow_difference,
-            "feedback": " | ".join(feedback_messages),
+            "visual_feedback": visual_feedback,
+            "voice_feedback": voice_feedback,
         }
+
+    def _voice_message_for_event(self, event):
+        messages = {
+            "uneven_arms": "Even out your arms",
+            "bottom": "Drive overhead",
+            "good_rep": "Good rep",
+            "short_lockout": "Finish the lockout",
+            "good_lockout": "Good lockout",
+            "middle": "",
+        }
+
+        return messages.get(event, "")
