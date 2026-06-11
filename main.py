@@ -209,6 +209,10 @@ def main():
             analysis = shoulder_press_analyzer.analyze(
                 left_elbow_angle,
                 right_elbow_angle,
+                left_shoulder,
+                right_shoulder,
+                left_wrist,
+                right_wrist,
         )
             
             # Debugging: print(analysis)
@@ -269,6 +273,16 @@ def main():
                 frame,
                 f"Arm difference: {int(analysis['elbow_difference'])}",
                 (20, 280),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            )
+            
+            cv2.putText(
+                frame,
+                f"Wrists overhead: {analysis['wrists_overhead']}",
+                (20, 320),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
                 (255, 255, 255),
