@@ -3,81 +3,82 @@ import cv2
 from formfix.angles import calculate_angle
 from formfix.pose_detector import PoseDetector
 from formfix.shoulder_press import ShoulderPressAnalyzer
+from formfix.squat import SquatAnalyzer
 from formfix.voice_feedback import VoiceFeedback
 
 
-''' def find_available_cameras(max_index=10):
-    available_cameras = [2]
-
-    print("Scanning for available cameras...")
-
-     for index in range(max_index):
-        cap = cv2.VideoCapture(index)
-
-        if cap.isOpened():
-            success, _ = cap.read()
-
-            if success:
-                available_cameras.append(index)
-                print(f"[{index}] Camera available")
-            else:
-                print(f"[{index}] Opens but cannot read frame")
-
-            cap.release()
-        else:
-            print(f"[{index}] Not available") 
-
-    return available_cameras
-'''
-
-''' def choose_camera():
-    available_cameras = find_available_cameras()
-
-    if not available_cameras:
-        print("No cameras found.")
-        return None
-
-    print("\nAvailable cameras:")
-    for index in available_cameras:
-        print(f"Camera {index}")
+def choose_exercise():
+    print("\nChoose exercise:")
+    print("[1] Shoulder press")
+    print("[2] Squat")
 
     while True:
-        choice = input("\nEnter the camera number you want to use: ")
+        choice = input("\nEnter exercise number: ")
 
-        try:
-            camera_index = int(choice)
+        if choice == "1":
+            return "shoulder_press"
 
-            if camera_index in available_cameras:
-                return camera_index
+        if choice == "2":
+            return "squat"
 
-            print("That camera number is not in the available list.")
+        print("Please choose 1 or 2.")
 
-        except ValueError:
-            print("Please enter a valid number.") '''
+
+def draw_common_feedback(frame, analysis):
+    cv2.putText(
+        frame,
+        f"Reps: {analysis['rep_count']}",
+        (20, 160),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.9,
+        (255, 255, 255),
+        2,
+    )
+
+    cv2.putText(
+        frame,
+        f"Position: {analysis['position']}",
+        (20, 200),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 255, 255),
+        2,
+    )
+
+    cv2.putText(
+        frame,
+        analysis["visual_feedback"],
+        (20, 240),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 255, 255),
+        2,
+    )
 
 
 def main():
-    camera_index = 2 #choose_camera()
+    exercise = choose_exercise()
 
-    if camera_index is None:
-        return
+    # Your laptop webcam is camera 2.
+    camera_index = 2
 
     print(f"\nStarting FormFix AI with camera {camera_index}...")
+    print(f"Exercise: {exercise}")
 
     pose_detector = PoseDetector()
     mp_pose = pose_detector.mp_pose
 
     shoulder_press_analyzer = ShoulderPressAnalyzer()
+    squat_analyzer = SquatAnalyzer()
+
     voice_feedback = VoiceFeedback()
     voice_feedback.speak("FormFix AI initialized. Let's get moving!")
 
-    # Test voice feedback
-    voice_feedback.speak("FormFix AI initialized. Let's get moving!")
-            
     cap = cv2.VideoCapture(camera_index)
 
     if not cap.isOpened():
         print("Could not open selected webcam.")
+        pose_detector.close()
         return
 
     try:
@@ -94,180 +95,218 @@ def main():
 
             if results.pose_landmarks:
                 pose_detector.draw_landmarks(frame, results)
-                
+
                 image_height, image_width, _ = frame.shape
                 landmarks = results.pose_landmarks.landmark
 
-                # your landmark/angle/analyzer/display code stays here
+                # Upper-body landmarks for shoulder press.
+                right_shoulder = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                    image_width,
+                    image_height,
+                )
 
-                ''' right_hip = get_landmark_point(
+                right_elbow = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.RIGHT_ELBOW,
+                    image_width,
+                    image_height,
+                )
+
+                right_wrist = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.RIGHT_WRIST,
+                    image_width,
+                    image_height,
+                )
+
+                left_shoulder = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.LEFT_SHOULDER,
+                    image_width,
+                    image_height,
+                )
+
+                left_elbow = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.LEFT_ELBOW,
+                    image_width,
+                    image_height,
+                )
+
+                left_wrist = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.LEFT_WRIST,
+                    image_width,
+                    image_height,
+                )
+
+                # Lower-body landmarks for squat.
+                right_hip = pose_detector.get_landmark_point(
                     landmarks,
                     mp_pose.PoseLandmark.RIGHT_HIP,
                     image_width,
                     image_height,
                 )
 
-                right_knee = get_landmark_point(
+                right_knee = pose_detector.get_landmark_point(
                     landmarks,
                     mp_pose.PoseLandmark.RIGHT_KNEE,
                     image_width,
                     image_height,
                 )
 
-                right_ankle = get_landmark_point(
+                right_ankle = pose_detector.get_landmark_point(
                     landmarks,
                     mp_pose.PoseLandmark.RIGHT_ANKLE,
                     image_width,
                     image_height,
                 )
 
-                right_knee_angle = calculate_angle(
-                    right_hip,
-                    right_knee,
-                    right_ankle,
+                left_hip = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.LEFT_HIP,
+                    image_width,
+                    image_height,
                 )
 
+                left_knee = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.LEFT_KNEE,
+                    image_width,
+                    image_height,
+                )
+
+                left_ankle = pose_detector.get_landmark_point(
+                    landmarks,
+                    mp_pose.PoseLandmark.LEFT_ANKLE,
+                    image_width,
+                    image_height,
+                )
+
+                if exercise == "shoulder_press":
+                    right_elbow_angle = calculate_angle(
+                        right_shoulder,
+                        right_elbow,
+                        right_wrist,
+                    )
+
+                    left_elbow_angle = calculate_angle(
+                        left_shoulder,
+                        left_elbow,
+                        left_wrist,
+                    )
+
+                    analysis = shoulder_press_analyzer.analyze(
+                        left_elbow_angle,
+                        right_elbow_angle,
+                        left_shoulder,
+                        right_shoulder,
+                        left_wrist,
+                        right_wrist,
+                    )
+
+                    voice_feedback.speak(analysis["voice_feedback"])
+
+                    cv2.putText(
+                        frame,
+                        f"Right elbow angle: {int(right_elbow_angle)}",
+                        (20, 80),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    cv2.putText(
+                        frame,
+                        f"Left elbow angle: {int(left_elbow_angle)}",
+                        (20, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    draw_common_feedback(frame, analysis)
+
+                    cv2.putText(
+                        frame,
+                        f"Arm difference: {int(analysis['elbow_difference'])}",
+                        (20, 280),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    cv2.putText(
+                        frame,
+                        f"Wrists overhead: {analysis['wrists_overhead']}",
+                        (20, 320),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                elif exercise == "squat":
+                    right_knee_angle = calculate_angle(
+                        right_hip,
+                        right_knee,
+                        right_ankle,
+                    )
+
+                    left_knee_angle = calculate_angle(
+                        left_hip,
+                        left_knee,
+                        left_ankle,
+                    )
+
+                    analysis = squat_analyzer.analyze(
+                        left_knee_angle,
+                        right_knee_angle,
+                    )
+
+                    voice_feedback.speak(analysis["voice_feedback"])
+
+                    cv2.putText(
+                        frame,
+                        f"Right knee angle: {int(right_knee_angle)}",
+                        (20, 80),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    cv2.putText(
+                        frame,
+                        f"Left knee angle: {int(left_knee_angle)}",
+                        (20, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    draw_common_feedback(frame, analysis)
+
+                    cv2.putText(
+                        frame,
+                        f"Knee difference: {int(analysis['knee_difference'])}",
+                        (20, 280),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
             cv2.putText(
                 frame,
-                f"Right knee angle: {int(right_knee_angle)}",
-                (20, 80),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-            ) '''
-            
-            right_shoulder = pose_detector.get_landmark_point(
-                landmarks,
-                mp_pose.PoseLandmark.RIGHT_SHOULDER,
-                image_width,
-                image_height,
-            )
-
-            right_elbow = pose_detector.get_landmark_point(
-                landmarks,
-                mp_pose.PoseLandmark.RIGHT_ELBOW,
-                image_width,
-                image_height,
-            )
-
-            right_wrist = pose_detector.get_landmark_point(
-                landmarks,
-                mp_pose.PoseLandmark.RIGHT_WRIST,
-                image_width,
-                image_height,
-            )
-
-            left_shoulder = pose_detector.get_landmark_point(
-                landmarks,
-                mp_pose.PoseLandmark.LEFT_SHOULDER,
-                image_width,
-                image_height,
-            )
-
-            left_elbow = pose_detector.get_landmark_point(
-                landmarks,
-                mp_pose.PoseLandmark.LEFT_ELBOW,
-                image_width,
-                image_height,
-            )
-
-            left_wrist = pose_detector.get_landmark_point(
-                landmarks,
-                mp_pose.PoseLandmark.LEFT_WRIST,
-                image_width,
-                image_height,
-            )
-
-            right_elbow_angle = calculate_angle(
-                right_shoulder,
-                right_elbow,
-                right_wrist,
-            )
-
-            left_elbow_angle = calculate_angle(
-                left_shoulder,
-                left_elbow,
-                left_wrist,
-            )
-    
-            analysis = shoulder_press_analyzer.analyze(
-                left_elbow_angle,
-                right_elbow_angle,
-                left_shoulder,
-                right_shoulder,
-                left_wrist,
-                right_wrist,
-        )
-            
-            # Debugging: print(analysis)
-            print("VOICE:", analysis["voice_feedback"])   
-            voice_feedback.speak(analysis["voice_feedback"])
-
-            cv2.putText(
-                frame,
-                f"Right elbow angle: {int(right_elbow_angle)}",
-                (20, 80),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-            )
-
-            cv2.putText(
-                frame,
-                f"Left elbow angle: {int(left_elbow_angle)}",
-                (20, 120),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-            )
-            
-            cv2.putText(
-                frame,
-                f"Reps: {analysis['rep_count']}",
-                (20, 160),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.9,
-                (255, 255, 255),
-                2,
-            )
-
-            cv2.putText(
-                frame,
-                f"Position: {analysis['position']}",
-                (20, 200),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-            )
-
-            cv2.putText(
-                frame,
-                analysis["visual_feedback"],
-                (20, 240),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-            )
-            
-            cv2.putText(
-                frame,
-                f"Arm difference: {int(analysis['elbow_difference'])}",
-                (20, 280),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-            )
-            
-            cv2.putText(
-                frame,
-                f"Wrists overhead: {analysis['wrists_overhead']}",
-                (20, 320),
+                "Press q to quit",
+                (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
                 (255, 255, 255),
@@ -276,13 +315,12 @@ def main():
 
             cv2.imshow("FormFix AI - Pose Test", frame)
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            key = cv2.waitKey(10) & 0xFF
+
+            if key == ord("q") or key == 27:  # 27 is ESC
+                print("Exiting FormFix AI...")
                 break
             
-            cv2.imshow("FormFix AI - Pose Test", frame)
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
     finally:
         pose_detector.close()
         cap.release()
