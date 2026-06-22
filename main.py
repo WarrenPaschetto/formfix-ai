@@ -1,17 +1,10 @@
 import cv2
-import mediapipe as mp
 
 from formfix.angles import calculate_angle
+from formfix.pose_detector import PoseDetector
 from formfix.shoulder_press import ShoulderPressAnalyzer
 from formfix.voice_feedback import VoiceFeedback
 
-def get_landmark_point(landmarks, landmark_enum, image_width, image_height):
-    landmark = landmarks[landmark_enum.value]
-
-    x = int(landmark.x * image_width)
-    y = int(landmark.y * image_height)
-
-    return x, y
 
 ''' def find_available_cameras(max_index=10):
     available_cameras = [2]
@@ -71,10 +64,12 @@ def main():
 
     print(f"\nStarting FormFix AI with camera {camera_index}...")
 
-    mp_pose = mp.solutions.pose
-    mp_drawing = mp.solutions.drawing_utils
+    pose_detector = PoseDetector()
+    mp_pose = pose_detector.mp_pose
+
     shoulder_press_analyzer = ShoulderPressAnalyzer()
     voice_feedback = VoiceFeedback()
+    voice_feedback.speak("FormFix AI initialized. Let's get moving!")
 
     # Test voice feedback
     voice_feedback.speak("FormFix AI initialized. Let's get moving!")
@@ -85,13 +80,7 @@ def main():
         print("Could not open selected webcam.")
         return
 
-    with mp_pose.Pose(
-        static_image_mode=False,
-        model_complexity=1,
-        enable_segmentation=False,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
-    ) as pose:
+    try:
         while True:
             success, frame = cap.read()
 
@@ -101,19 +90,15 @@ def main():
 
             frame = cv2.flip(frame, 1)
 
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            results = pose.process(rgb_frame)
+            results = pose_detector.process_frame(frame)
 
             if results.pose_landmarks:
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.pose_landmarks,
-                    mp_pose.POSE_CONNECTIONS,
-                )
+                pose_detector.draw_landmarks(frame, results)
                 
                 image_height, image_width, _ = frame.shape
                 landmarks = results.pose_landmarks.landmark
+
+                # your landmark/angle/analyzer/display code stays here
 
                 ''' right_hip = get_landmark_point(
                     landmarks,
@@ -152,42 +137,42 @@ def main():
                 2,
             ) '''
             
-            right_shoulder = get_landmark_point(
+            right_shoulder = pose_detector.get_landmark_point(
                 landmarks,
                 mp_pose.PoseLandmark.RIGHT_SHOULDER,
                 image_width,
                 image_height,
             )
 
-            right_elbow = get_landmark_point(
+            right_elbow = pose_detector.get_landmark_point(
                 landmarks,
                 mp_pose.PoseLandmark.RIGHT_ELBOW,
                 image_width,
                 image_height,
             )
 
-            right_wrist = get_landmark_point(
+            right_wrist = pose_detector.get_landmark_point(
                 landmarks,
                 mp_pose.PoseLandmark.RIGHT_WRIST,
                 image_width,
                 image_height,
             )
 
-            left_shoulder = get_landmark_point(
+            left_shoulder = pose_detector.get_landmark_point(
                 landmarks,
                 mp_pose.PoseLandmark.LEFT_SHOULDER,
                 image_width,
                 image_height,
             )
 
-            left_elbow = get_landmark_point(
+            left_elbow = pose_detector.get_landmark_point(
                 landmarks,
                 mp_pose.PoseLandmark.LEFT_ELBOW,
                 image_width,
                 image_height,
             )
 
-            left_wrist = get_landmark_point(
+            left_wrist = pose_detector.get_landmark_point(
                 landmarks,
                 mp_pose.PoseLandmark.LEFT_WRIST,
                 image_width,
@@ -293,9 +278,15 @@ def main():
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
+            
+            cv2.imshow("FormFix AI - Pose Test", frame)
 
-    cap.release()
-    cv2.destroyAllWindows()
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    finally:
+        pose_detector.close()
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
