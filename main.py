@@ -4,6 +4,7 @@ from formfix.angles import calculate_angle
 from formfix.pose_detector import PoseDetector
 from formfix.shoulder_press import ShoulderPressAnalyzer
 from formfix.squat import SquatAnalyzer
+from formfix.lunge import LungeAnalyzer
 from formfix.voice_feedback import VoiceFeedback
 
 
@@ -11,6 +12,7 @@ def choose_exercise():
     print("\nChoose exercise:")
     print("[1] Shoulder press")
     print("[2] Squat")
+    print("[3] Lunge")
 
     while True:
         choice = input("\nEnter exercise number: ")
@@ -20,9 +22,26 @@ def choose_exercise():
 
         if choice == "2":
             return "squat"
+        if choice == "3":
+            return "lunge"
+
+        print("Please choose 1, 2, or 3.")
+
+def choose_lead_leg():
+    print("\nChoose lead leg for lunge:")
+    print("[1] Left leg forward")
+    print("[2] Right leg forward")
+
+    while True:
+        choice = input("\nEnter lead leg number: ")
+
+        if choice == "1":
+            return "left"
+
+        if choice == "2":
+            return "right"
 
         print("Please choose 1 or 2.")
-
 
 def draw_common_feedback(frame, analysis):
     cv2.putText(
@@ -58,18 +77,25 @@ def draw_common_feedback(frame, analysis):
 
 def main():
     exercise = choose_exercise()
+    lead_leg = None
+
+    if exercise == "lunge":
+        lead_leg = choose_lead_leg()
 
     # Your laptop webcam is camera 2.
     camera_index = 2
 
     print(f"\nStarting FormFix AI with camera {camera_index}...")
     print(f"Exercise: {exercise}")
+    if exercise == "lunge":
+        print(f"Lead leg: {lead_leg}")
 
     pose_detector = PoseDetector()
     mp_pose = pose_detector.mp_pose
 
     shoulder_press_analyzer = ShoulderPressAnalyzer()
     squat_analyzer = SquatAnalyzer()
+    lunge_analyzer = LungeAnalyzer(lead_leg) if exercise == "lunge" else None
 
     voice_feedback = VoiceFeedback()
     voice_feedback.speak("FormFix AI initialized. Let's get moving!")
@@ -297,6 +323,74 @@ def main():
                         frame,
                         f"Knee difference: {int(analysis['knee_difference'])}",
                         (20, 280),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+                    
+                elif exercise == "lunge":
+                    right_knee_angle = calculate_angle(
+                        right_hip,
+                        right_knee,
+                        right_ankle,
+                    )
+
+                    left_knee_angle = calculate_angle(                            left_hip,
+                        left_knee,
+                        left_ankle,
+                    )
+
+                    if lead_leg == "left":
+                        lead_knee_angle = left_knee_angle
+                        rear_knee_angle = right_knee_angle
+                    else:
+                        lead_knee_angle = right_knee_angle
+                        rear_knee_angle = left_knee_angle
+
+                    analysis = lunge_analyzer.analyze(
+                        lead_knee_angle,
+                        rear_knee_angle,
+                    )
+
+                    voice_feedback.speak(analysis["voice_feedback"])
+
+                    cv2.putText(
+                        frame,
+                        f"Right knee angle: {int(right_knee_angle)}",
+                        (20, 80),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    cv2.putText(
+                        frame,
+                        f"Left knee angle: {int(left_knee_angle)}",
+                        (20, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                      )
+
+                    draw_common_feedback(frame, analysis)
+
+                    cv2.putText(
+                        frame,
+                        f"Lead leg: {analysis['lead_leg']}",
+                        (20, 280),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2,
+                    )
+
+                    cv2.putText(
+                        frame,
+                        f"Rear knee angle: {int(analysis['rear_knee_angle'])}",
+                        (20, 320),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.8,
                         (255, 255, 255),
